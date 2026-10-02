@@ -82,11 +82,30 @@ If the suite grows substantially, I would keep UI and API as separate jobs/proje
 
 The assistant helped with exploration and implementation, but the assertions, external-service assumptions, and CI schedule must still be reviewed against the challenge and current behavior before merge.
 
-## Theory questions
+## Theoretical Questions
 
-1. **Scalability (500 tests):** Keep tests grouped by product capability, not by one giant spec; share typed fixtures and domain helpers, isolate data, and tag suites by runtime/criticality. Add sharding only after measuring runtime and verify parallel safety first.
-2. **Flakiness:** Compare traces, screenshots, logs, and environment/network signals across pass/fail runs; identify whether the cause is an unstable locator, race, shared state, or dependency outage. Fix the cause or improve synchronization; use bounded retries to expose and measure intermittency, not to mask it. Skip only with a tracked defect, owner, and revisit date.
-3. **POM:** One file, if the button locator is encapsulated in the relevant page object and tests call its action instead of carrying their own selector. The selector changes once; tests should change only if behavior or the public page-object API changes.
-4. **Responsible AI use:** Check the requirement and oracle, selector stability, negative cases, isolation, waits, types, and the actual trace/result; run the smallest relevant suite and review the diff. I would not delegate the final decision about whether a business outcome is correct to AI; that needs product context and evidence.
-5. **Senior QA responsibility:** Own risk-based coverage and the credibility of the test oracle. For example, decide whether a payment failure blocks release, challenge missing acceptance criteria with stakeholders, and communicate residual risk; an assistant can help gather evidence but cannot own that accountability.
-6. **Transient CI network failure:** Preserve traces/logs and report the failed run. Use a small bounded retry for transient diagnosis, then alert the team if it remains failing; distinguish service outage from a product regression and rerun only with a recorded reason. Do not silently discard the scheduled result or turn the test into a skip.
+### 1. Scalability: Imagine the suite has grown to 500 tests. What changes would you make or suggest to the structure?
+
+If the suite grew to 500 tests, the first thing I'd do is **group them by product capability**, instead of having giant specs that do everything. I'd use **typed fixtures** and **shared helpers**, isolate data between tests, and **tag** suites by criticality and runtime. I'd only add **sharding** after measuring how long everything takes, not before. I'd also split **UI and API into separate Playwright projects**, each with its own config, and in CI I'd set up a **matrix per project** to run them in parallel. But all of that only after verifying the tests don't share state and can be safely parallelized.
+
+### 2. Flakiness: If a test is intermittent (sometimes passes, sometimes fails) without code changes, how do you diagnose it and what options do you consider before marking it as skip?
+
+When a test is intermittent, the first thing is to **gather evidence**: compare traces, screenshots, logs, and network signals between the passing and failing runs. Then figure out the root cause: is it an unstable locator, a race condition, shared state between tests, or the environment acting up? What I do is **fix the cause or improve the synchronization**. I use **retries** to **see and measure** the flakiness, not to hide it. And I only mark it as `skip` if there's a **tracked bug, an assigned owner, and a date to revisit it**.
+
+### 3. POM: If the site changes the selector for the "Search" button, how many files in the project would you need to modify? Justify.
+
+**One single file**, if the button locator lives inside the Page Object and the tests call its **action** instead of carrying their own selector. The selector changes once, and the tests only change if the **behavior** or the **public POM API** changes.
+
+### 4. AI assistant — Responsible use: If your AI assistant generates a test that passes on the first try, what do you check before merging it? Tell us about a case where you decided NOT to use the assistant even though you could have.
+
+If a test passes on the first try, I check: that it **validates what it's supposed to validate** (the requirement and the oracle), that the selectors are stable, that it covers negative cases, that it's isolated, that there's no `waitForTimeout` or `force: true`, that it's properly typed, and I look at the **actual trace** from the run. I run the smallest relevant suite and review the diff. What I **don't** delegate to AI is deciding whether a business outcome is correct: that needs product context and evidence.
+
+**Concrete case where I did NOT use AI:** in this same challenge, to define the POM selectors I preferred to inspect the real DOM by hand (including the fight with Select2) instead of letting Copilot invent locators from the URL. Because AI tends to give you selectors that **look** right but don't actually exist (like `#PadOrigen`, which was on a hidden input but wasn't the clickable element). In a challenge judged on criteria, I'd rather verify with my own eyes before writing code.
+
+### 5. Role criteria: What is a Senior QA's responsibility that CANNOT be delegated to an AI assistant? Give concrete examples.
+
+A Senior QA owns the **risk** and the **credibility of the oracle**. For example: deciding whether a payment failure blocks a release, challenging missing acceptance criteria with stakeholders, and clearly communicating **residual risk**. AI can help you **gather evidence**, but the **responsibility** can't be delegated.
+
+### 6. CI/CD: If tests fail every Monday at 3 PM because of a transient network issue in the environment, how would you handle it? Retries? Discard the run? Alert the team?
+
+If tests fail every Monday at 3 PM because of a transient network issue, I preserve **traces and logs** and report the failed run. I use a **bounded retry** only to diagnose the transient issue. If it keeps failing, I **alert the team** (via Slack/Teams from the workflow, or by opening an automatic issue). I distinguish between a **service outage** and a **product regression**, and I re-run only if there's a documented reason. I **don't silently discard the scheduled run**, and I don't turn the test into a `skip` without leaving a trace.
