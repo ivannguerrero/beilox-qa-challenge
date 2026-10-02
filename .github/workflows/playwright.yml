@@ -1,0 +1,47 @@
+name: Playwright tests
+
+on:
+  schedule:
+    - cron: '0 18 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      BASE_URL: https://www.centraldepasajes.com.ar
+      SWAPI_BASE_URL: https://www.swapi.tech/api/
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Type-check
+        run: npm run typecheck
+
+      - name: Run UI and API tests
+        run: npm test
+
+      - name: Upload API happy-path JSON
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-happy-path-snapshots
+          path: tests/api/snapshots/*.json
+          if-no-files-found: warn
